@@ -9,6 +9,7 @@
         "build-min": "webpack --config webpack.config.js --mode=production"
     },
     "dependencies": {
+        "@bigcommerce/stencil-utils": "^6.15.1",
         "ajv": "^8.6.3"
     },
     "devDependencies": {

@@ -1,8 +1,29 @@
+// import utils from '@bigcommerce/stencil-utils';
 (function () {
 
-  var dataLayer = window.dataLayer || [];
-  if (!window.dataLayer)
-    window.dataLayer = dataLayer;
+  var gtmDataLayer = window.gtmDataLayer || [];
+  if (!window.gtmDataLayer)
+    window.gtmDataLayer = gtmDataLayer;
+
+  (function(w, d, s, l, i) {
+    //test stores don't have qa and test in the name atm
+    // var q = /(test|qa)\./.test(document.location.hostname)
+    //     ? '&gtm_auth=QdsxPg__bulLcFg0npL1Xg&gtm_preview=env-5&gtm_cookies_win=x'
+    //     : '';
+    var q = /store\.ramseysolutions\.com/.test('store.ramseysolutions.com')
+        ? ''
+        : '&gtm_auth=QdsxPg__bulLcFg0npL1Xg&gtm_preview=env-5&gtm_cookies_win=x';
+    w[l] = w[l] || [];
+    w[l].push({ 'gtm.start': new Date().getTime(), event: 'gtm.js' });
+    var f = d.getElementsByTagName(s)[0],
+        j = d.createElement(s),
+        dl = l != 'dataLayer' ? '&l=' + l : '';
+    j.async = true;
+    j.src = 'https://www.googletagmanager.com/gtm.js?id=' + i + dl + q;
+    f.parentNode.insertBefore(j, f);
+  })(window, document, 'script', 'gtmDataLayer', 'GTM-5Z3Z28D');
+
+
 
   var pageType = '{{page_type}}';
 
@@ -70,7 +91,7 @@
 
                 //{{#each category}}
                 var index = parseInt('{{@index}}');
-                item[index == 0 ? 'item_category' : `item_category${index} + 1`] = htmlDecode('{{this}}');
+                item[index == 0 ? 'item_category' : `item_category${index}`] = htmlDecode('{{this}}');
                 //{{/each}}
                 items.push(item);
 //             {{/each}}
@@ -87,20 +108,21 @@
       item_id: '{{product.id}}',
       price: parseFloat('{{product.price.without_tax.value}}'),
       sku: '{{product.sku}}',
+      item_brand: htmlDecode('{{product.brand}}'),
       item_url: htmlDecode('{{product.url}}'),
       item_image_url: htmlDecode('{{product.main_image.data}}'),
     }
 
     //{{#each product.category}}
       var index = parseInt('{{@index}}');
-      item[index == 0 ? 'item_category' : `item_category${index} + 1`] = htmlDecode('{{this}}');
+      item[index == 0 ? 'item_category' : `item_category${index}`] = htmlDecode('{{this}}');
     //{{/each}}
 
     return item;
   }
 
   function pushDataLayerEcommerce(event, items) {
-    dataLayer.push({
+    gtmDataLayer.push({
         event: event,
         ecommerce: {
             items: items
@@ -113,8 +135,8 @@
   }
   else if (pageType === 'product') {
     pushDataLayerEcommerce('view_item', [getItem()]);
-    } else if (pageType === 'search') {
-        dataLayer.push({
+  } else if (pageType === 'search') {
+        gtmDataLayer.push({
         event: 'search',
         search_term: '{{forms.search.query}}'
     });
@@ -126,34 +148,63 @@
   window.eecHtmlDecode = htmlDecode;
   window.eecClean = clean;
 
-  dataLayer['eec'] = {};
+  document.addEventListener('submit', function (e) {
+    for (let { target } = e; target && target !== this; target = target.parentNode) {
+      if (target.matches('[data-cart-item-add]')) {
+          gtmDataLayer.push({
+            event: "addToCart",
+            ecommerce: {
+              currency: "USD",
+              value: gtmDataLayer.eec['item'].price * parseInt(document.getElementById('qty[]').value),
+              items: [
+                {
+                  item_id: gtmDataLayer.eec['item'].sku,
+                  item_name: htmlDecode(gtmDataLayer.eec['item'].item_name),
+                  item_brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
+                  price: gtmDataLayer.eec['item'].price,
+                  quantity: parseInt(document.getElementById('qty[]').value),
+                  item_category: htmlDecode(gtmDataLayer.eec['item'].item_category),
+                  item_category2: htmlDecode(gtmDataLayer.eec['item'].item_category2),
+                  item_category3: htmlDecode(gtmDataLayer.eec['item'].item_category3),
+                  item_category4: htmlDecode(gtmDataLayer.eec['item'].item_category4),
+                  item_category5: htmlDecode(gtmDataLayer.eec['item'].item_category5),
+                }
+              ]
+            }
+          });
+        break;
+      }
+    }
+  }, false);
+
+  gtmDataLayer['eec'] = {};
 
   //{{#or (if category.products) (if products.new) (if products.featured) (if products.top_sellers) (if cart.items) (if product_results.products)}}
-  dataLayer['eec']['items'] = getItems();
+  gtmDataLayer['eec']['items'] = getItems();
   //{{/or}}
 
   //{{#if product}}
-  dataLayer['eec']['item'] = getItem();
+  gtmDataLayer['eec']['item'] = getItem();
   //{{/if}}
 
   //{{#if cart_id}}
-  dataLayer['eec']['cart_id'] = '{{ cart_id }}';
+  gtmDataLayer['eec']['cart_id'] = '{{ cart_id }}';
   //{{/if}}
 
   //{{#if customer}}
-  dataLayer['eec']['shopper'] = getShopper();
+  gtmDataLayer['eec']['shopper'] = getShopper();
   //{{/if}}
 
   //{{#if category.id}}
-  dataLayer['eec']['item_list_id'] = '{{category.id}}';
+  gtmDataLayer['eec']['item_list_id'] = '{{category.id}}';
   //{{/if}}
 
   //{{#if category.name}}
-  dataLayer['eec']['item_list_name'] = htmlDecode('{{category.name}}');
+  gtmDataLayer['eec']['item_list_name'] = htmlDecode('{{category.name}}');
   //{{/if}}
 
   //{{#if forms.search.query}}
-  dataLayer['eec']['search_query'] = htmlDecode('{{forms.search.query}}');
+  gtmDataLayer['eec']['search_query'] = htmlDecode('{{forms.search.query}}');
   //{{/if}}
 
 })
