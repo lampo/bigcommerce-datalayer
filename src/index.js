@@ -1,4 +1,3 @@
-// import utils from '@bigcommerce/stencil-utils';
 (function () {
 
   var gtmDataLayer = window.gtmDataLayer || [];
@@ -77,6 +76,7 @@
                 var item = clean({
                   item_name: htmlDecode('{{name}}'),
                   item_id: '{{product_id}}' ? '{{product_id}}' : '{{id}}',
+                  cart_item_id: '{{id}}' ? '{{id}}' : undefined,
                   sku: '{{sku}}',
                   price: "{{price.value}}" ? parseFloat('{{price.value}}') : parseFloat('{{price.without_tax.value}}'),
                   item_brand: htmlDecode('{{brand.name}}'),
@@ -87,13 +87,12 @@
                   quantity: '{{quantity}}' ? parseInt('{{quantity}}') : undefined
                 });
 
-
-
                 //{{#each category}}
                 var index = parseInt('{{@index}}');
                 item[index == 0 ? 'item_category' : `item_category${index}`] = htmlDecode('{{this}}');
                 //{{/each}}
                 items.push(item);
+
 //             {{/each}}
 //          {{/or}}
 //       {{/each}}
@@ -130,16 +129,131 @@
     });
   }
 
+  window.eecResetListener = function() {
+    for (let item of gtmDataLayer.eec["items"]) {
+      var delButton = document.querySelector("[data-cart-itemid='" + item.cart_item_id + "'][data-testid='cart-content-delete-button']");
+      delButton.addEventListener("click", function () {
+        var okButton = document.getElementById('alert-modal').querySelector('button.confirm');
+        okButton.addEventListener('click', function () {
+          gtmDataLayer.push({
+            event: "removeFromCart",
+            ecommerce: {
+              currency: "USD",
+              value: item.quantity * item.price,
+              items: item
+            }
+          });
+        });
+      });
+      var decButton = document.querySelector("[data-cart-itemid='" + item.cart_item_id + "'][data-testid='cart-content-decrease-button']");
+      decButton.addEventListener("click", function () {
+        gtmDataLayer.push({
+          event: "removeFromCart",
+          ecommerce: {
+            currency: "USD",
+            value: item.quantity * item.price,
+            items: item
+          }
+        });
+      });
+      var incButton = document.querySelector("[data-cart-itemid='" + item.cart_item_id + "'][data-testid='cart-content-increase-button']");
+      incButton.addEventListener("click", function () {
+        gtmDataLayer.push({
+          event: "addToCart",
+          ecommerce: {
+            currency: "USD",
+            value: item.quantity * item.price,
+            items: item
+          }
+        });
+      });
+    }
+  }
+
   if (pageType === 'category') {
     pushDataLayerEcommerce('view_item_list', getItems());
   }
   else if (pageType === 'product') {
     pushDataLayerEcommerce('view_item', [getItem()]);
-  } else if (pageType === 'search') {
+  }
+  else if (pageType === 'search') {
         gtmDataLayer.push({
         event: 'search',
         search_term: '{{forms.search.query}}'
     });
+  }
+  else if (pageType === 'orderconfirmation') {
+    fetch('/api/storefront/order/{{checkout.order.id}}', {
+      credentials: 'include'
+    }).then(function (response) {
+      return response.json();
+    }).then(function (orderData) {
+      const orderItems = orderData.lineItems.physicalItems.map(item => {
+        const container = {};
+        container['item_id'] = Boolean(item.sku)? item.sku : item.id;
+        container['item_name'] = item.name;
+        container['price'] = item.salePrice;
+        container['quantity'] = item.quantity;
+        return container;
+      });
+      gtmDataLayer.push({
+        event: "orderPage",
+        ecommerce: {
+          transaction_id: "?",
+          currency: "USD",
+          value: orderData.orderAmount,
+          tax: orderData.taxTotal,
+          shipping: orderData.shippingCostTotal,
+          coupon: orderData.coupons.length > 0 ? orderData.coupons[0].code:'',
+          items: orderItems
+        }
+      });
+    });
+  }
+  else if (pageType === 'cart') {
+    window.addEventListener("load", function() {
+      var cartContainer = document.querySelector('[data-cart]');
+      var cartContainerConfig = {attributes: false, childList: true};
+      var cartContainerObserver = new MutationObserver(function (mutationList/*, observer*/) {
+        var bob = mutationList.find(function(record) {
+          var rob = Array.from(record.addedNodes).find(function(node){
+            return node.outerText.startsWith('Your Cart (');
+          });
+          return rob !== undefined;
+        });
+        if (bob !== undefined) {
+          window.eecResetListener();
+        }
+      });
+      cartContainerObserver.observe(cartContainer, cartContainerConfig);
+    });
+
+    //{{#if cart.added_item.name}}
+    window.addEventListener("load", function() {
+      var is_reload = performance.getEntriesByType("navigation").type === "reload";
+      if (!is_reload && !window.item_added) {
+        gtmDataLayer.push({
+          event: "addToCart",
+          ecommerce: {
+            currency: "USD",
+            value: parseFloat("{{cart.added_item.price.value}}") * parseInt("{{cart.added_item.quantity}}"),
+            items: [
+              {
+                item_id: "{{cart.added_item.sku}}",
+                item_name: "{{cart.added_item.name}}",
+                item_brand: "{{cart.added_item.brand}}",
+                price: parseFloat("{{cart.added_item.price.value}}"),
+                quantity: parseInt("{{cart.added_item.quantity}}"),
+              }
+            ]
+          }
+        });
+      }
+      window.item_added = true;
+
+    });
+    //{{/if}}
+    window.addEventListener("load", window.eecResetListener);
   }
 
   window.eecGetShopper = getShopper;
@@ -148,34 +262,36 @@
   window.eecHtmlDecode = htmlDecode;
   window.eecClean = clean;
 
+  //{{#if product}}
   document.addEventListener('submit', function (e) {
     for (let { target } = e; target && target !== this; target = target.parentNode) {
       if (target.matches('[data-cart-item-add]')) {
-          gtmDataLayer.push({
-            event: "addToCart",
-            ecommerce: {
-              currency: "USD",
-              value: gtmDataLayer.eec['item'].price * parseInt(document.getElementById('qty[]').value),
-              items: [
-                {
-                  item_id: gtmDataLayer.eec['item'].sku,
-                  item_name: htmlDecode(gtmDataLayer.eec['item'].item_name),
-                  item_brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
-                  price: gtmDataLayer.eec['item'].price,
-                  quantity: parseInt(document.getElementById('qty[]').value),
-                  item_category: htmlDecode(gtmDataLayer.eec['item'].item_category),
-                  item_category2: htmlDecode(gtmDataLayer.eec['item'].item_category2),
-                  item_category3: htmlDecode(gtmDataLayer.eec['item'].item_category3),
-                  item_category4: htmlDecode(gtmDataLayer.eec['item'].item_category4),
-                  item_category5: htmlDecode(gtmDataLayer.eec['item'].item_category5),
-                }
-              ]
-            }
-          });
+        gtmDataLayer.push({
+          event: "addToCart",
+          ecommerce: {
+            currency: "USD",
+            value: gtmDataLayer.eec['item'].price * parseInt(document.getElementById('qty[]').value),
+            items: [
+              {
+                item_id: gtmDataLayer.eec['item'].sku,
+                item_name: htmlDecode(gtmDataLayer.eec['item'].item_name),
+                item_brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
+                price: gtmDataLayer.eec['item'].price,
+                quantity: parseInt(document.getElementById('qty[]').value),
+                item_category: htmlDecode(gtmDataLayer.eec['item'].item_category) || "",
+                item_category2: htmlDecode(gtmDataLayer.eec['item'].item_category2) || "",
+                item_category3: htmlDecode(gtmDataLayer.eec['item'].item_category3) || "",
+                item_category4: htmlDecode(gtmDataLayer.eec['item'].item_category4) || "",
+                item_category5: htmlDecode(gtmDataLayer.eec['item'].item_category5) || "",
+              }
+            ]
+          }
+        });
         break;
       }
     }
   }, false);
+  //{{/if}}
 
   gtmDataLayer['eec'] = {};
 
