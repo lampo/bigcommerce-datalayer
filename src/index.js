@@ -74,22 +74,21 @@
 //          {{#or (if @key '===' "new") (if @key '===' "featured") (if @key '===' "products") (if @key '===' "category") (if @key '===' "items")}}
 //            {{#each this}}
                 var item = clean({
-                  item_name: htmlDecode('{{name}}'),
-                  item_id: '{{product_id}}' ? '{{product_id}}' : '{{id}}',
+                  name: htmlDecode('{{name}}'),
                   cart_item_id: '{{id}}' ? '{{id}}' : undefined,
-                  sku: '{{sku}}',
+                  id: '{{sku}}',
                   price: "{{price.value}}" ? parseFloat('{{price.value}}') : parseFloat('{{price.without_tax.value}}'),
-                  item_brand: htmlDecode('{{brand.name}}'),
-                  item_url: htmlDecode('{{url}}'),
-                  item_image_url: htmlDecode('{{image.data}}'),
-                  item_list_name: htmlDecode('{{../category.name}}'),
-                  item_list_id: '{{../category.id}}',
+                  brand: htmlDecode('{{brand.name}}'),
+                  // item_url: htmlDecode('{{url}}'),
+                  // item_image_url: htmlDecode('{{image.data}}'),
+                  // item_list_name: htmlDecode('{{../category.name}}'),
+                  // item_list_id: '{{../category.id}}',
                   quantity: '{{quantity}}' ? parseInt('{{quantity}}') : undefined
                 });
 
                 //{{#each category}}
                 var index = parseInt('{{@index}}');
-                item[index == 0 ? 'item_category' : `item_category${index}`] = htmlDecode('{{this}}');
+                item[index == 0 ? 'category' : `item_category${index}`] = htmlDecode('{{this}}');
                 //{{/each}}
                 items.push(item);
 
@@ -103,31 +102,30 @@
 
   function getItem() {
     var item = {
-      item_name: htmlDecode('{{product.title}}'), // Name or ID is required.
-      item_id: '{{product.id}}',
+      name: htmlDecode('{{product.title}}'), // Name or ID is required.
       price: parseFloat('{{product.price.without_tax.value}}'),
-      sku: '{{product.sku}}',
-      item_brand: htmlDecode('{{product.brand}}'),
-      item_url: htmlDecode('{{product.url}}'),
-      item_image_url: htmlDecode('{{product.main_image.data}}'),
+      id: '{{product.sku}}',
+      brand: htmlDecode('{{product.brand}}'),
+      // item_url: htmlDecode('{{product.url}}'),
+      // item_image_url: htmlDecode('{{product.main_image.data}}'),
     }
 
     //{{#each product.category}}
       var index = parseInt('{{@index}}');
-      item[index == 0 ? 'item_category' : `item_category${index}`] = htmlDecode('{{this}}');
+      item[index == 0 ? 'category' : `item_category${index}`] = htmlDecode('{{this}}');
     //{{/each}}
 
     return item;
   }
 
-  function pushDataLayerEcommerce(event, items) {
-    gtmDataLayer.push({
-        event: event,
-        ecommerce: {
-            items: items
-        }
-    });
-  }
+  // function pushDataLayerEcommerce(event, items) {
+  //   gtmDataLayer.push({
+  //       event: event,
+  //       ecommerce: {
+  //           items: items
+  //       }
+  //   });
+  // }
 
   window.eecResetListener = function() {
     for (let item of gtmDataLayer.eec["items"]) {
@@ -138,9 +136,10 @@
           gtmDataLayer.push({
             event: "removeFromCart",
             ecommerce: {
-              currency: "USD",
-              value: item.quantity * item.price,
-              items: item
+              currencyCode: "USD",
+              remove: {
+                products: item
+              }
             }
           });
         });
@@ -150,9 +149,10 @@
         gtmDataLayer.push({
           event: "removeFromCart",
           ecommerce: {
-            currency: "USD",
-            value: item.quantity * item.price,
-            items: item
+            currencyCode: "USD",
+            remove: {
+              products: item
+            }
           }
         });
       });
@@ -161,25 +161,25 @@
         gtmDataLayer.push({
           event: "addToCart",
           ecommerce: {
-            currency: "USD",
-            value: item.quantity * item.price,
-            items: item
+            currencyCode: "USD",
+            add: {
+              products: item
+            }
           }
         });
       });
     }
   }
 
-  if (pageType === 'category') {
-    pushDataLayerEcommerce('view_item_list', getItems());
-  }
-  else if (pageType === 'product') {
-    pushDataLayerEcommerce('view_item', [getItem()]);
-  }
-  else if (pageType === 'search') {
-        gtmDataLayer.push({
-        event: 'search',
-        search_term: '{{forms.search.query}}'
+  if (pageType === 'product') {
+    gtmDataLayer.push({
+      event: "detailPage",
+      ecommerce: {
+        currencyCode: "USD",
+        detail: {
+          products: getItem()
+        }
+      }
     });
   }
   else if (pageType === 'orderconfirmation') {
@@ -190,22 +190,29 @@
     }).then(function (orderData) {
       const orderItems = orderData.lineItems.physicalItems.map(item => {
         const container = {};
-        container['item_id'] = Boolean(item.sku)? item.sku : item.id;
-        container['item_name'] = item.name;
+        container['id'] = Boolean(item.sku)? item.sku : item.id;
+        container['name'] = item.name;
         container['price'] = item.salePrice;
         container['quantity'] = item.quantity;
+        // container['brand']  TODO
+        // container['category']
         return container;
       });
       gtmDataLayer.push({
         event: "orderPage",
         ecommerce: {
-          transaction_id: "?",
-          currency: "USD",
-          value: orderData.orderAmount,
-          tax: orderData.taxTotal,
-          shipping: orderData.shippingCostTotal,
-          coupon: orderData.coupons.length > 0 ? orderData.coupons[0].code:'',
-          items: orderItems
+          currencyCode: "USD",
+          purchase: {
+            actionField: {
+              id: '{{checkout.order.id}}',
+              affiliation: "RS BigCommerce",
+              revenue: orderData.orderAmount,
+              tax: orderData.taxTotal,
+              shipping: orderData.shippingCostTotal,
+              coupon: orderData.coupons.length > 0 ? orderData.coupons[0].code:'',
+            },
+            products: orderItems
+          }
         }
       });
     });
@@ -235,17 +242,19 @@
         gtmDataLayer.push({
           event: "addToCart",
           ecommerce: {
-            currency: "USD",
-            value: parseFloat("{{cart.added_item.price.value}}") * parseInt("{{cart.added_item.quantity}}"),
-            items: [
-              {
-                item_id: "{{cart.added_item.sku}}",
-                item_name: "{{cart.added_item.name}}",
-                item_brand: "{{cart.added_item.brand}}",
-                price: parseFloat("{{cart.added_item.price.value}}"),
-                quantity: parseInt("{{cart.added_item.quantity}}"),
-              }
-            ]
+            currencyCode: "USD",
+            add: {
+              products: [
+                {
+                  id: "{{cart.added_item.sku}}",
+                  name: "{{cart.added_item.name}}",
+                  brand: "{{cart.added_item.brand}}",
+                  price: parseFloat("{{cart.added_item.price.value}}"),
+                  quantity: parseInt("{{cart.added_item.quantity}}"),
+                  //category TODO
+                }
+              ]
+            }
           }
         });
       }
@@ -269,22 +278,19 @@
         gtmDataLayer.push({
           event: "addToCart",
           ecommerce: {
-            currency: "USD",
-            value: gtmDataLayer.eec['item'].price * parseInt(document.getElementById('qty[]').value),
-            items: [
-              {
-                item_id: gtmDataLayer.eec['item'].sku,
-                item_name: htmlDecode(gtmDataLayer.eec['item'].item_name),
-                item_brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
-                price: gtmDataLayer.eec['item'].price,
-                quantity: parseInt(document.getElementById('qty[]').value),
-                item_category: htmlDecode(gtmDataLayer.eec['item'].item_category) || "",
-                item_category2: htmlDecode(gtmDataLayer.eec['item'].item_category2) || "",
-                item_category3: htmlDecode(gtmDataLayer.eec['item'].item_category3) || "",
-                item_category4: htmlDecode(gtmDataLayer.eec['item'].item_category4) || "",
-                item_category5: htmlDecode(gtmDataLayer.eec['item'].item_category5) || "",
-              }
-            ]
+            currencyCode: "USD",
+            add: {
+              products: [
+                {
+                  id: gtmDataLayer.eec['item'].sku,
+                  name: htmlDecode(gtmDataLayer.eec['item'].item_name),
+                  brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
+                  price: gtmDataLayer.eec['item'].price,
+                  quantity: parseInt(document.getElementById('qty[]').value),
+                  category: htmlDecode(gtmDataLayer.eec['item'].item_category) || "",
+                }
+              ]
+            }
           }
         });
         break;
@@ -309,18 +315,6 @@
 
   //{{#if customer}}
   gtmDataLayer['eec']['shopper'] = getShopper();
-  //{{/if}}
-
-  //{{#if category.id}}
-  gtmDataLayer['eec']['item_list_id'] = '{{category.id}}';
-  //{{/if}}
-
-  //{{#if category.name}}
-  gtmDataLayer['eec']['item_list_name'] = htmlDecode('{{category.name}}');
-  //{{/if}}
-
-  //{{#if forms.search.query}}
-  gtmDataLayer['eec']['search_query'] = htmlDecode('{{forms.search.query}}');
   //{{/if}}
 
 })
