@@ -138,7 +138,7 @@
             ecommerce: {
               currencyCode: "USD",
               remove: {
-                products: item
+                products: [item]
               }
             }
           });
@@ -151,7 +151,7 @@
           ecommerce: {
             currencyCode: "USD",
             remove: {
-              products: item
+              products: [item]
             }
           }
         });
@@ -163,7 +163,7 @@
           ecommerce: {
             currencyCode: "USD",
             add: {
-              products: item
+              products: [item]
             }
           }
         });
@@ -177,27 +177,38 @@
       ecommerce: {
         currencyCode: "USD",
         detail: {
-          products: getItem()
+          products: [getItem()]
         }
       }
     });
   }
   else if (pageType === 'orderconfirmation') {
-    fetch('/api/storefront/order/{{checkout.order.id}}', {
+    fetch('/api/storefront/orders/{{checkout.order.id}}', {
       credentials: 'include'
     }).then(function (response) {
       return response.json();
     }).then(function (orderData) {
-      const orderItems = orderData.lineItems.physicalItems.map(item => {
+      const orderPhysicalItems = orderData.lineItems.physicalItems.map(item => {
         const container = {};
         container['id'] = Boolean(item.sku)? item.sku : item.id;
         container['name'] = item.name;
         container['price'] = item.salePrice;
         container['quantity'] = item.quantity;
         // container['brand']  TODO
-        // container['category']
+        container['category'] = item.categories.length > 0 ? item.categories[0] : "";
         return container;
       });
+      const orderDigitalItems = orderData.lineItems.digitalItems.map(item => {
+        const container = {};
+        container['id'] = Boolean(item.sku)? item.sku : item.id;
+        container['name'] = item.name;
+        container['price'] = item.salePrice;
+        container['quantity'] = item.quantity;
+        // container['brand']  TODO
+        container['category'] = item.categories.length > 0 ? item.categories[0] : "";
+        return container;
+      });
+      const orderItems = orderPhysicalItems.concat(orderDigitalItems);
       gtmDataLayer.push({
         event: "orderPage",
         ecommerce: {
@@ -248,10 +259,14 @@
                 {
                   id: "{{cart.added_item.sku}}",
                   name: "{{cart.added_item.name}}",
-                  brand: "{{cart.added_item.brand}}",
+                  brand: "{{cart.added_item.brand.name}}",
                   price: parseFloat("{{cart.added_item.price.value}}"),
                   quantity: parseInt("{{cart.added_item.quantity}}"),
-                  //category TODO
+                  //{{#each cart.added_item.category_names}}
+                  //{{#if @first}}
+                  category: '{{this}}',
+                  //{{/if}}
+                  //{{/each}}
                 }
               ]
             }
@@ -282,12 +297,12 @@
             add: {
               products: [
                 {
-                  id: gtmDataLayer.eec['item'].sku,
-                  name: htmlDecode(gtmDataLayer.eec['item'].item_name),
-                  brand: htmlDecode(gtmDataLayer.eec['item'].item_brand),
+                  id: gtmDataLayer.eec['item'].id,
+                  name: htmlDecode(gtmDataLayer.eec['item'].name),
+                  brand: htmlDecode(gtmDataLayer.eec['item'].brand),
                   price: gtmDataLayer.eec['item'].price,
                   quantity: parseInt(document.getElementById('qty[]').value),
-                  category: htmlDecode(gtmDataLayer.eec['item'].item_category) || "",
+                  category: htmlDecode(gtmDataLayer.eec['item'].category) || "",
                 }
               ]
             }
