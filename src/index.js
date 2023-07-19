@@ -105,7 +105,7 @@
       name: htmlDecode('{{product.title}}'), // Name or ID is required.
       price: parseFloat('{{product.price.without_tax.value}}'),
       id: '{{product.sku}}',
-      brand: htmlDecode('{{product.brand}}'),
+      brand: htmlDecode('{{product.brand.name}}'),
       // item_url: htmlDecode('{{product.url}}'),
       // item_image_url: htmlDecode('{{product.main_image.data}}'),
     }
