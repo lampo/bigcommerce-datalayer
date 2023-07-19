@@ -209,18 +209,56 @@
         return container;
       });
       const orderItems = orderPhysicalItems.concat(orderDigitalItems);
+      
+      const createProductBrandFetchOpts = product => {
+        const query = `query ProductBrand {
+            site {
+              product(sku: "${product.id}") {
+                brand {
+                  name
+                }
+              }
+            }
+          }`;
+        return {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer {{ settings.storefront_api.token }}' // use auto-generated token
+          },
+
+          body: JSON.stringify({
+            query
+          })
+        };
+      };
+      const productBrandFetches = orderItems.map(item => fetch('/graphql', createProductBrandFetchOpts(item)).then(response => response.json()).then(({
+        data
+      }) => {
+        const brand = data.site.product.brand.name;
+        item.brand = brand;
+      }));
+      return Promise.all(productBrandFetches).then(() => ({
+        orderData,
+        orderItems
+      }));
+    }).then(function ({
+      orderData,
+      orderItems
+    }) {
       gtmDataLayer.push({
-        event: "orderPage",
+        event: 'orderPage',
         ecommerce: {
-          currencyCode: "USD",
+          currencyCode: 'USD',
           purchase: {
             actionField: {
               id: '{{checkout.order.id}}',
-              affiliation: "RS BigCommerce",
+              affiliation: 'RS BigCommerce',
               revenue: orderData.orderAmount,
               tax: orderData.taxTotal,
               shipping: orderData.shippingCostTotal,
-              coupon: orderData.coupons.length > 0 ? orderData.coupons[0].code:'',
+              coupon: orderData.coupons.length > 0 ? orderData.coupons[0].code : ''
             },
             products: orderItems
           }
