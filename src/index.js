@@ -425,11 +425,10 @@
                 bundleSkuMap = new Map([...bundleSkuMap, ...itemBundles]);
                 if (itemBundles.size <= 0) {
                   const container = {};
-                  container['id'] = Boolean(item.sku) ? item.sku : item.id;
+                  container['id'] = item.sku ? item.sku : item.id;
                   container['name'] = item.name;
                   container['price'] = item.salePrice;
                   container['quantity'] = item.quantity;
-                  // container['brand']  TODO
                   container['category'] =
                       item.categories.length > 0 ? item.categories[0] : '';
                   itemList.push(container);
@@ -456,11 +455,10 @@
                 bundleSkuMap = new Map([...bundleSkuMap, ...itemBundles]);
                 if (itemBundles.size <= 0) {
                   const container = {};
-                  container['id'] = Boolean(item.sku) ? item.sku : item.id;
+                  container['id'] = item.sku ? item.sku : item.id;
                   container['name'] = item.name;
                   container['price'] = item.salePrice;
                   container['quantity'] = item.quantity;
-                  // container['brand']  TODO
                   container['category'] =
                       item.categories.length > 0 ? item.categories[0] : '';
                   itemList.push(container);
