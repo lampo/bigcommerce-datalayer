@@ -1,5 +1,7 @@
 # BigCommerce GA4 Ecommerce dataLayer
 
+**Note**: the script has been drastically changed from the forked version to adapt to our GTM specifications.
+
 A dataLayer implementation for BigCommerce, based upon the [Google Analytics 4 Ecommerce specification](https://developers.google.com/analytics/devguides/collection/ga4/ecommerce).
 
 Brought to you by [Fueled Inc](https://fueled.io).
@@ -25,6 +27,8 @@ This project is installed via [BigCommerce's Script Manager](https://support.big
  6. Save
 
 ## Build
+
+  **Note**: I had issues with build-min script in that minified code didn't work correctly. Instead, I used https://www.uglifyjs.net/ and chose to Mangle names and Mangle function names. I pasted the results into dist/dataLayer.min.js.
 
   To build and bundle the dataLayer from source, run (You will need [Node](https://nodejs.org/) installed):
 
